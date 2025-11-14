@@ -1,115 +1,189 @@
-// @deno-types="npm:@types/leaflet"
-import leaflet from "leaflet";
+// src/main.ts
 
-// Style sheets
-import "leaflet/dist/leaflet.css"; // supporting style for Leaflet
-import "./style.css"; // student-controlled page style
+import { CELL_SIZE_DEG, latLngToCellId, manhattan } from "./grid.ts";
+import {
+  clearSavedState,
+  createInitialState,
+  loadState,
+  saveState,
+} from "./persistance.ts";
+import type { CellId, GameState } from "./state.ts";
+import { cellKey } from "./state.ts";
+import { World } from "./world.ts";
 
-// Fix missing marker images
-import "./_leafletWorkaround.ts"; // fixes for missing Leaflet images
+const INTERACTION_RANGE = 2; // how far from the player you can interact
 
-// Import our luck function
-import luck from "./_luck.ts";
+// HUD elements
+const mapEl = document.getElementById("map") as HTMLElement;
+const scoreEl = document.getElementById("score") as HTMLElement;
+const heldEl = document.getElementById("held") as HTMLElement;
+const resetBtn = document.getElementById("reset") as HTMLButtonElement;
 
-// Create basic UI elements
+// load saved state or start fresh
+const state: GameState = loadState() ?? createInitialState();
 
-const controlPanelDiv = document.createElement("div");
-controlPanelDiv.id = "controlPanel";
-document.body.append(controlPanelDiv);
+// World keeps a reference to the same state object
+const world = new World(state, mapEl, handleCellClick);
 
-const mapDiv = document.createElement("div");
-mapDiv.id = "map";
-document.body.append(mapDiv);
+updateHud();
+world.renderCells();
 
-const statusPanelDiv = document.createElement("div");
-statusPanelDiv.id = "statusPanel";
-document.body.append(statusPanelDiv);
+// ---------------- RESET BUTTON ----------------
 
-// Our classroom location
-const CLASSROOM_LATLNG = leaflet.latLng(
-  36.997936938057016,
-  -122.05703507501151,
-);
+resetBtn.addEventListener("click", () => {
+  const fresh = createInitialState();
 
-// Tunable gameplay parameters
-const GAMEPLAY_ZOOM_LEVEL = 19;
-const TILE_DEGREES = 1e-4;
-const NEIGHBORHOOD_SIZE = 8;
-const CACHE_SPAWN_PROBABILITY = 0.1;
+  state.playerLL = fresh.playerLL;
+  state.score = fresh.score;
+  state.held = fresh.held;
+  state.overrides = fresh.overrides;
+  state.craftCellId = fresh.craftCellId;
+  state.scoreCellId = fresh.scoreCellId;
 
-// Create the map (element with id "map" is defined in index.html)
-const map = leaflet.map(mapDiv, {
-  center: CLASSROOM_LATLNG,
-  zoom: GAMEPLAY_ZOOM_LEVEL,
-  minZoom: GAMEPLAY_ZOOM_LEVEL,
-  maxZoom: GAMEPLAY_ZOOM_LEVEL,
-  zoomControl: false,
-  scrollWheelZoom: false,
+  clearSavedState();
+  updateHud();
+  world.renderCells();
 });
 
-// Populate the map with a background tile layer
-leaflet
-  .tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom: 19,
-    attribution:
-      '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-  })
-  .addTo(map);
+// ---------------- KEYBOARD MOVEMENT ----------------
 
-// Add a marker to represent the player
-const playerMarker = leaflet.marker(CLASSROOM_LATLNG);
-playerMarker.bindTooltip("That's you!");
-playerMarker.addTo(map);
+globalThis.addEventListener("keydown", (ev: KeyboardEvent): void => {
+  let dx = 0;
+  let dy = 0;
 
-// Display the player's points
-let playerPoints = 0;
-statusPanelDiv.innerHTML = "No points yet...";
+  switch (ev.key) {
+    case "ArrowUp":
+    case "w":
+    case "W":
+      dy = 1;
+      break;
+    case "ArrowDown":
+    case "s":
+    case "S":
+      dy = -1;
+      break;
+    case "ArrowLeft":
+    case "a":
+    case "A":
+      dx = -1;
+      break;
+    case "ArrowRight":
+    case "d":
+    case "D":
+      dx = 1;
+      break;
+    default:
+      return; // ignore other keys
+  }
 
-// Add caches to the map by cell numbers
-function spawnCache(i: number, j: number) {
-  // Convert cell numbers into lat/lng bounds
-  const origin = CLASSROOM_LATLNG;
-  const bounds = leaflet.latLngBounds([
-    [origin.lat + i * TILE_DEGREES, origin.lng + j * TILE_DEGREES],
-    [origin.lat + (i + 1) * TILE_DEGREES, origin.lng + (j + 1) * TILE_DEGREES],
-  ]);
+  ev.preventDefault();
 
-  // Add a rectangle to the map to represent the cache
-  const rect = leaflet.rectangle(bounds);
-  rect.addTo(map);
+  // move one grid cell in the chosen direction
+  state.playerLL = {
+    lat: state.playerLL.lat + dy * CELL_SIZE_DEG,
+    lng: state.playerLL.lng + dx * CELL_SIZE_DEG,
+  };
 
-  // Handle interactions with the cache
-  rect.bindPopup(() => {
-    // Each cache has a random point value, mutable by the player
-    let pointValue = Math.floor(luck([i, j, "initialValue"].toString()) * 100);
+  // re-center map on player without animation (faster)
+  world.map.setView(
+    [state.playerLL.lat, state.playerLL.lng],
+    world.map.getZoom(),
+    { animate: false },
+  );
 
-    // The popup offers a description and button
-    const popupDiv = document.createElement("div");
-    popupDiv.innerHTML = `
-                <div>There is a cache here at "${i},${j}". It has value <span id="value">${pointValue}</span>.</div>
-                <button id="poke">poke</button>`;
+  saveState(state);
+  world.updatePlayerMarker();
+  // cells will re-render because world.map's "moveend" listener calls renderCells()
+});
 
-    // Clicking the button decrements the cache's value and increments the player's points
-    popupDiv
-      .querySelector<HTMLButtonElement>("#poke")!
-      .addEventListener("click", () => {
-        pointValue--;
-        popupDiv.querySelector<HTMLSpanElement>("#value")!.innerHTML =
-          pointValue.toString();
-        playerPoints++;
-        statusPanelDiv.innerHTML = `${playerPoints} points accumulated`;
-      });
+// ---------------- CELL INTERACTION ----------------
 
-    return popupDiv;
-  });
+function sameCell(a: CellId, b: CellId): boolean {
+  return a.x === b.x && a.y === b.y;
 }
 
-// Look around the player's neighborhood for caches to spawn
-for (let i = -NEIGHBORHOOD_SIZE; i < NEIGHBORHOOD_SIZE; i++) {
-  for (let j = -NEIGHBORHOOD_SIZE; j < NEIGHBORHOOD_SIZE; j++) {
-    // If location i,j is lucky enough, spawn a cache!
-    if (luck([i, j].toString()) < CACHE_SPAWN_PROBABILITY) {
-      spawnCache(i, j);
+function handleCellClick(id: CellId): void {
+  const playerCell = latLngToCellId(state.playerLL);
+
+  // only allow interaction when cell is near the player
+  if (manhattan(playerCell, id) > INTERACTION_RANGE) return;
+
+  const isCraft = sameCell(id, state.craftCellId);
+  const isScore = sameCell(id, state.scoreCellId);
+
+  // --- Score block: cash in held token for permanent score ---
+  if (isScore) {
+    if (state.held) {
+      state.score += state.held.value;
+      state.held = undefined;
+      // keep the score cell visually empty
+      setOverrideEmpty(id);
+      saveState(state);
+      updateHud();
+      world.renderCells();
     }
+    return;
   }
+
+  const cellBefore = world.getCell(id);
+  const cellToken = cellBefore.token;
+  const held = state.held;
+
+  // --- Crafting block: combine tokens ---
+  if (isCraft) {
+    if (!held && cellToken) {
+      // pick up from craft cell
+      state.held = { ...cellToken };
+      setOverrideEmpty(id);
+    } else if (held && !cellToken) {
+      // place held token into craft cell
+      setOverrideToken(id, held.value);
+      state.held = undefined;
+    } else if (held && cellToken) {
+      // combine: simple rule = sum values
+      const newValue = held.value + cellToken.value;
+      setOverrideToken(id, newValue);
+      state.held = undefined;
+    } else {
+      return;
+    }
+
+    saveState(state);
+    updateHud();
+    world.renderCells();
+    return;
+  }
+
+  // --- Normal world cells: pick up / drop only (no combining here) ---
+
+  if (!held && cellToken) {
+    // pick up token from the world
+    state.held = { ...cellToken };
+    setOverrideEmpty(id);
+  } else if (held && !cellToken) {
+    // drop held token into an empty world cell
+    setOverrideToken(id, held.value);
+    state.held = undefined;
+  } else {
+    return;
+  }
+
+  saveState(state);
+  updateHud();
+  world.renderCells();
+}
+
+// ---------------- HELPERS ----------------
+
+function setOverrideEmpty(id: CellId): void {
+  state.overrides.set(cellKey(id), { id, token: undefined });
+}
+
+function setOverrideToken(id: CellId, value: number): void {
+  state.overrides.set(cellKey(id), { id, token: { value } });
+}
+
+function updateHud(): void {
+  scoreEl.textContent = state.score.toString();
+  heldEl.textContent = state.held ? state.held.value.toString() : "—";
 }

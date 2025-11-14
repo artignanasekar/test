@@ -1,17 +1,163 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CMPM 121 D3</title>
-    <link rel="icon" href="data:,">
-  </head>
+    <meta charset="utf-8" />
+    <title>World of Bits – Arti</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
 
+    <!-- Leaflet CSS -->
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin=""
+    />
+
+    <style>
+      html,
+      body,
+      #app {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        width: 100%;
+      }
+
+      body {
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      }
+
+      #app {
+        display: flex;
+        flex-direction: column;
+      }
+
+      #map {
+        flex: 1 1 auto;
+      }
+      #hud {
+        flex: 0 0 auto;
+        padding: 0.5rem 1rem;
+        border-top: 1px solid #ddd;
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+        background: #fafafa;
+        font-size: 0.9rem;
+      }
+
+      #hud-main {
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+      }
+
+      #hud-instructions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.25rem 1rem;
+        font-size: 0.75rem;
+        color: #555;
+      }
+
+      #hud button {
+        margin-left: auto;
+        padding: 0.3rem 0.7rem;
+        border-radius: 4px;
+        border: 1px solid #ccc;
+        background: white;
+        cursor: pointer;
+      }
+
+      #hud {
+        flex: 0 0 auto;
+        padding: 0.5rem 1rem;
+        border-top: 1px solid #ddd;
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+        background: #fafafa;
+        font-size: 0.9rem;
+      }
+
+      #hud-main {
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+      }
+
+      #hud-instructions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.25rem 1rem;
+        font-size: 0.75rem;
+        color: #555;
+      }
+
+      #hud button {
+        margin-left: auto;
+        padding: 0.3rem 0.7rem;
+        border-radius: 4px;
+        border: 1px solid #ccc;
+        background: white;
+        cursor: pointer;
+      }
+
+      .token-label {
+        background: rgba(0, 0, 0, 0.75);
+        color: #fff;
+        border-radius: 4px;
+        padding: 0 4px;
+        font-size: 0.75rem;
+      }
+
+      .player-circle {
+        stroke: #222;
+        stroke-width: 1;
+        fill: #ffcc00;
+      }
+
+      .player-icon {
+        font-size: 24px;
+        line-height: 24px;
+        text-align: center;
+        transform: translate(-50%, -50%);
+      }
+    </style>
+  </head>
   <body>
-    <!--
-      Students: Try not to make *any* changes to this index.html file.
-      Instead, express all of your design using TypeScript.
-      -->
-    <script type="module" src="./src/main.ts"></script>
+    <div id="app">
+      <div id="map"></div>
+      <div id="hud">
+        <div id="hud-main">
+          <span class="label">Score:</span>
+          <span id="score">0</span>
+
+          <span class="label">Held:</span>
+          <span id="held">—</span>
+
+          <button id="reset">Reset world</button>
+        </div>
+        <div id="hud-instructions">
+          <span class="label">How to play:</span>
+          <span>🐱 = you. Use arrow keys or WASD to move.</span>
+          <span>Click nearby cells to pick up / drop tokens.</span>
+          <span>🟧 <strong>C</strong> = craft table. Drop tokens here to combine
+            them.</span>
+          <span>🟩 <strong>★</strong> = bank. Click while holding a token to add
+            its value to your Score.</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Leaflet JS (global L) -->
+    <script
+      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+      crossorigin=""
+    ></script>
+
+    <!-- Your game entry point -->
+    <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
