@@ -1,7 +1,14 @@
 // src/persistance.ts
 
 import { latLngToCellId } from "./grid.ts";
-import type { Cell, CellId, GameState, LatLng, Token } from "./state.ts";
+import type {
+  Cell,
+  CellId,
+  GameState,
+  GameStatus,
+  LatLng,
+  Token,
+} from "./state.ts";
 import { cellKey, CLASSROOM_ORIGIN } from "./state.ts";
 
 const SAVE_KEY = "world-of-bits-save";
@@ -18,6 +25,8 @@ type SavedState = {
   overrides: SavedCell[];
   craftCellId?: CellId;
   scoreCellId?: CellId;
+  bestScore?: number;
+  status?: GameStatus;
 };
 
 export function saveState(state: GameState): void {
@@ -36,6 +45,8 @@ export function saveState(state: GameState): void {
     overrides,
     craftCellId: state.craftCellId,
     scoreCellId: state.scoreCellId,
+    bestScore: state.bestScore,
+    status: state.status,
   };
 
   try {
@@ -82,9 +93,15 @@ export function loadState(): GameState | undefined {
       });
     }
 
+    const score = data.score ?? 0;
+    const bestScore = data.bestScore ?? score;
+    const status: GameStatus = data.status ?? "playing";
+
     return {
       playerLL,
-      score: data.score,
+      score,
+      bestScore,
+      status,
       held: data.held,
       overrides,
       craftCellId,
@@ -109,6 +126,8 @@ export function createInitialState(): GameState {
   return {
     playerLL,
     score: 0,
+    bestScore: 0,
+    status: "playing",
     held: undefined,
     overrides,
     craftCellId,

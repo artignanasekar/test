@@ -8,7 +8,7 @@ import {
   saveState,
 } from "./persistance.ts";
 import type { CellId, GameState } from "./state.ts";
-import { cellKey } from "./state.ts";
+import { applyScoreDelta, cellKey, TARGET_SCORE } from "./state.ts";
 import { World } from "./world.ts";
 
 const INTERACTION_RANGE = 2; // how far from the player you can interact
@@ -18,6 +18,9 @@ const mapEl = document.getElementById("map") as HTMLElement;
 const scoreEl = document.getElementById("score") as HTMLElement;
 const heldEl = document.getElementById("held") as HTMLElement;
 const resetBtn = document.getElementById("reset") as HTMLButtonElement;
+const bestEl = document.getElementById("best-score") as HTMLElement;
+const goalEl = document.getElementById("goal-score") as HTMLElement;
+const winOverlayEl = document.getElementById("win-overlay") as HTMLElement;
 
 // load saved state or start fresh
 const state: GameState = loadState() ?? createInitialState();
@@ -35,12 +38,15 @@ resetBtn.addEventListener("click", () => {
 
   state.playerLL = fresh.playerLL;
   state.score = fresh.score;
+  state.bestScore = fresh.bestScore;
+  state.status = fresh.status;
   state.held = fresh.held;
   state.overrides = fresh.overrides;
   state.craftCellId = fresh.craftCellId;
   state.scoreCellId = fresh.scoreCellId;
 
   clearSavedState();
+  saveState(state);
   updateHud();
   world.renderCells();
 });
@@ -48,6 +54,7 @@ resetBtn.addEventListener("click", () => {
 // ---------------- KEYBOARD MOVEMENT ----------------
 
 globalThis.addEventListener("keydown", (ev: KeyboardEvent): void => {
+  // allow moving even after winning, so you can still explore
   let dx = 0;
   let dy = 0;
 
@@ -103,6 +110,9 @@ function sameCell(a: CellId, b: CellId): boolean {
 }
 
 function handleCellClick(id: CellId): void {
+  // once you win, ignore further cell interactions (you can reset to play again)
+  if (state.status === "won") return;
+
   const playerCell = latLngToCellId(state.playerLL);
 
   // only allow interaction when cell is near the player
@@ -114,7 +124,7 @@ function handleCellClick(id: CellId): void {
   // --- Score block: cash in held token for permanent score ---
   if (isScore) {
     if (state.held) {
-      state.score += state.held.value;
+      applyScoreDelta(state, state.held.value);
       state.held = undefined;
       // keep the score cell visually empty
       setOverrideEmpty(id);
@@ -186,4 +196,15 @@ function setOverrideToken(id: CellId, value: number): void {
 function updateHud(): void {
   scoreEl.textContent = state.score.toString();
   heldEl.textContent = state.held ? state.held.value.toString() : "—";
+
+  if (bestEl) {
+    bestEl.textContent = state.bestScore.toString();
+  }
+  if (goalEl) {
+    goalEl.textContent = TARGET_SCORE.toString();
+  }
+
+  if (winOverlayEl) {
+    winOverlayEl.style.display = state.status === "won" ? "flex" : "none";
+  }
 }
