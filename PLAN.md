@@ -201,6 +201,56 @@ add persistent per-cell state across sessions, introduce special “craft table�
 
 ---
 
+## d3.d – geolocation movement facade + mode switching
+
+goal for this milestone:\
+use the browser geolocation api as an alternative way to move the player around the real world, hide movement behind a facade-style interface, and let the player switch between keyboard and geolocation while keeping the world persistent.
+
+### a. movement facade design
+
+- [#] define an interface / type for movement controllers (e.g. “movement facade”) that exposes high-level movement actions instead of direct event listeners.\
+  _core game now depends on a `MovementController`-style abstraction, not on specific input._
+- [#] wrap the existing keyboard movement (arrow keys + wasd) in a controller that implements this interface.
+- [#] update the game loop so it consumes movement intents from the active controller only.
+
+### b. geolocation controller implementation
+
+- [#] use `navigator.geolocation.watchPosition` (with sensible options) to subscribe to device location changes.
+- [#] convert each geolocation update into a target grid cell by mapping `(lat,lng)` to the null-island grid used by the rest of the game.
+- [#] on each update, enqueue movement intents that step the player toward the new cell instead of teleporting.\
+  _real-world movement translates into discrete grid steps for the 🐱._
+- [#] add a graceful fallback path when geolocation is unavailable or permission is denied (stay in keyboard mode and show a note in the hud).
+
+### c. persistence + new game flow
+
+- [#] extend the saved state to remember the current movement mode (keyboard vs geo) along with player position, score, held token, overrides, and special cell ids.
+- [#] ensure that on reload the world restores both the map state and whichever movement mode was last used.
+- [#] keep the existing “reset world” button as the “start a new game” flow, clearing localStorage and resetting movement mode to the default (keyboard).
+
+### d. mode switching (ui + query string)
+
+- [#] read a `movement` query string parameter on startup (e.g. `movement=keyboard` or `movement=geo`) to choose the initial controller.\
+  _lets me quickly launch the game in a specific mode for testing._
+- [#] add an on-screen toggle (e.g. in the hud) that lets the player switch between keyboard and geolocation during play.
+- [#] when switching, cleanly detach listeners from the old controller and attach the new one so both are never active at once.
+- [#] update the hud text to clearly show the current mode and any geolocation status (“waiting for gps…”, “geo disabled, using keyboard”, etc.).
+
+### e. gameplay + feel checks
+
+- [#] verify that when geolocation is active, moving the device around (or moving the laptop / test device) causes the cat to move across the grid in the expected direction.
+- [#] confirm that the interaction radius, crafting at `c`, and scoring at `★` still behave correctly under geolocation-driven movement.
+- [#] test that closing and reopening the page resumes from the same state for both movement modes.
+- [ ] consider small juice touches specific to geo mode (e.g. subtle hud highlight, icon next to the cat when gps is active).
+
+### f. testing + cleanup for d3.d
+
+- [#] test on at least two environments (e.g. laptop + phone or different browsers) to make sure geolocation permissions and fallbacks behave sanely.
+- [#] double-check that switching modes mid-session doesn’t corrupt save data (position, score, overrides).
+- [ ] add diagram-style comments explaining how the movement facade, keyboard controller, and geolocation controller fit together.
+- [#] commit and push with a clear message describing “geolocation movement + movement facade + mode switching”.
+
+---
+
 ## stretch ideas / backlog (optional)
 
 things i might try later if there’s time:
@@ -211,3 +261,4 @@ things i might try later if there’s time:
 - on-map ui for showing interaction radius.
 - keyboard shortcuts for resetting, zoom presets, or cycling tips in the hud.
 - add an explicit win condition (e.g. “reach 100 points” or “craft a 16+ token”) and a win screen.
+- richer geolocation visuals (trail of where you’ve walked, heatmap of visited cells, etc.).
