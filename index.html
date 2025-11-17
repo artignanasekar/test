@@ -30,7 +30,6 @@
       #app {
         display: flex;
         flex-direction: column;
-        position: relative;
       }
 
       #map {
@@ -51,7 +50,7 @@
       #hud-main {
         display: flex;
         align-items: center;
-        gap: 1.5rem;
+        gap: 1rem;
         flex-wrap: wrap;
       }
 
@@ -64,12 +63,19 @@
       }
 
       #hud button {
-        margin-left: auto;
         padding: 0.3rem 0.7rem;
         border-radius: 4px;
         border: 1px solid #ccc;
         background: white;
         cursor: pointer;
+      }
+
+      #reset {
+        margin-left: auto;
+      }
+
+      .label {
+        font-weight: 600;
       }
 
       .token-label {
@@ -80,12 +86,6 @@
         font-size: 0.75rem;
       }
 
-      .player-circle {
-        stroke: #222;
-        stroke-width: 1;
-        fill: #ffcc00;
-      }
-
       .player-icon {
         font-size: 24px;
         line-height: 24px;
@@ -93,39 +93,36 @@
         transform: translate(-50%, -50%);
       }
 
-      /* win overlay */
-
-      #win-overlay {
-        position: absolute;
-        inset: 0;
-        display: none; /* toggled on when the player wins */
+      /* Movement button cluster */
+      #move-controls {
+        display: flex;
+        flex-direction: column;
         align-items: center;
-        justify-content: center;
-        background: rgba(0, 0, 0, 0.55);
-        z-index: 1000;
+        gap: 0.15rem;
+        font-size: 0.8rem;
       }
 
-      #win-overlay .win-card {
-        background: #111827;
-        color: #f9fafb;
-        padding: 1rem 1.5rem;
-        border-radius: 0.75rem;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-        text-align: center;
-        font-size: 0.9rem;
+      #move-controls-row {
+        display: flex;
+        gap: 0.15rem;
       }
 
-      #win-overlay h2 {
-        margin: 0 0 0.5rem;
-        font-size: 1.2rem;
+      #move-controls button {
+        width: 2rem;
+        height: 2rem;
+        padding: 0;
       }
 
-      #win-overlay p {
-        margin: 0.15rem 0;
+      .movement-select {
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+        font-size: 0.8rem;
       }
 
-      .label {
-        font-weight: 600;
+      .movement-select select {
+        padding: 0.15rem 0.35rem;
+        font-size: 0.8rem;
       }
     </style>
   </head>
@@ -140,34 +137,37 @@
           <span class="label">Held:</span>
           <span id="held">—</span>
 
-          <span class="label">Best:</span>
-          <span id="best-score">0</span>
+          <div id="move-controls">
+            <button id="btn-up">↑</button>
+            <div id="move-controls-row">
+              <button id="btn-left">←</button>
+              <button id="btn-down">↓</button>
+              <button id="btn-right">→</button>
+            </div>
+          </div>
 
-          <span class="label">Goal:</span>
-          <span id="goal-score">128</span>
+          <div class="movement-select">
+            <span class="label">Movement:</span>
+            <select id="movement-mode">
+              <option value="buttons">Buttons / Keyboard</option>
+              <option value="geo">Geolocation</option>
+            </select>
+          </div>
 
           <button id="reset">Reset world</button>
         </div>
+
         <div id="hud-instructions">
           <span class="label">How to play:</span>
-          <span>🐱 = you. Use arrow keys or WASD to move.</span>
+          <span>🐱 = you. Use the arrow buttons or WASD/arrow keys in “Buttons”
+            mode.</span>
+          <span>Switch to “Geolocation” to move the cat by moving with your
+            device (you’ll be asked for location permission).</span>
           <span>Click nearby cells to pick up / drop tokens.</span>
-          <span>
-            🟧 <strong>C</strong> = craft table. Drop tokens here to combine
-            them.
-          </span>
-          <span>
-            🟩 <strong>★</strong> = bank. Click while holding a token to add its
-            value to your Score and work toward the goal.
-          </span>
-        </div>
-      </div>
-
-      <div id="win-overlay">
-        <div class="win-card">
-          <h2>you win!</h2>
-          <p>you reached the goal score for this run.</p>
-          <p>press “Reset world” below to start a fresh run.</p>
+          <span>🟧 <strong>C</strong> = craft table. Drop tokens here to combine
+            them.</span>
+          <span>🟩 <strong>★</strong> = bank. Click while holding a token to add
+            its value to your Score.</span>
         </div>
       </div>
     </div>
