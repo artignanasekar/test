@@ -39,11 +39,6 @@ const world = new World(state, mapEl, handleCellClick);
 updateHud();
 world.renderCells();
 
-/**
- * Core helper: move the player by whole grid steps.
- * All movement implementations (buttons, geolocation, etc.)
- * call this instead of touching state/world directly.
- */
 function movePlayerByCells(dx: number, dy: number): void {
   if (dx === 0 && dy === 0) return;
 
@@ -64,13 +59,6 @@ function movePlayerByCells(dx: number, dy: number): void {
   world.updatePlayerMarker();
   // cells will re-render because world.map's "moveend" listener calls renderCells()
 }
-
-/**
- * Movement interface + implementations
- * ------------------------------------
- * This is the "interface" layer for the movement subsystem.
- * The rest of the game only calls movePlayerByCells(dx, dy).
- */
 
 type MoveCallback = (dx: number, dy: number) => void;
 
