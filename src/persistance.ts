@@ -48,9 +48,7 @@ export function saveState(state: GameState): void {
     scoreCellId: state.scoreCellId,
     bestScore: state.bestScore,
     status: state.status,
-    ...(state.headingDeg !== undefined
-      ? { headingDeg: state.headingDeg }
-      : {}),
+    ...(state.headingDeg !== undefined ? { headingDeg: state.headingDeg } : {}),
   };
 
   try {

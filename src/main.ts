@@ -39,7 +39,9 @@ const world = new World(state, mapEl, handleCellClick);
 updateHud();
 world.renderCells();
 
-function normalizeHeadingDeg(value: number | undefined | null): number | undefined {
+function normalizeHeadingDeg(
+  value: number | undefined | null,
+): number | undefined {
   if (value === undefined || value === null) return undefined;
   if (Number.isNaN(value)) return undefined;
   const wrapped = value % 360;

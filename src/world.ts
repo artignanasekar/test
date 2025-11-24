@@ -66,8 +66,7 @@ export class World {
     // 🐱 player character marker
     const playerIcon = L.divIcon({
       className: "player-icon",
-      html:
-        `<div class="player-marker">
+      html: `<div class="player-marker">
           <div class="player-heading"></div>
           <div class="player-emoji">🐱</div>
         </div>`,
