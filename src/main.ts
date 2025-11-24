@@ -39,6 +39,13 @@ const world = new World(state, mapEl, handleCellClick);
 updateHud();
 world.renderCells();
 
+function normalizeHeadingDeg(value: number | undefined | null): number | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (Number.isNaN(value)) return undefined;
+  const wrapped = value % 360;
+  return wrapped < 0 ? wrapped + 360 : wrapped;
+}
+
 function movePlayerByCells(dx: number, dy: number): void {
   if (dx === 0 && dy === 0) return;
 
@@ -60,7 +67,36 @@ function movePlayerByCells(dx: number, dy: number): void {
   // cells will re-render because world.map's "moveend" listener calls renderCells()
 }
 
+function movePlayerToLatLng(target: LatLng, headingDeg?: number): void {
+  const prevCell = latLngToCellId(state.playerLL);
+
+  state.playerLL = target;
+
+  const normalizedHeading = normalizeHeadingDeg(headingDeg ?? state.headingDeg);
+  state.headingDeg = normalizedHeading;
+
+  const newCell = latLngToCellId(target);
+  const movedToNewCell = prevCell.x !== newCell.x || prevCell.y !== newCell.y;
+
+  // keep the map centered on the player as they walk
+  world.map.setView(
+    [state.playerLL.lat, state.playerLL.lng],
+    world.map.getZoom(),
+    { animate: false },
+  );
+
+  saveState(state);
+
+  // Only re-render cells when crossing into a new grid cell; otherwise just move the marker.
+  if (movedToNewCell) {
+    world.renderCells();
+  } else {
+    world.updatePlayerMarker();
+  }
+}
+
 type MoveCallback = (dx: number, dy: number) => void;
+type PositionCallback = (ll: LatLng, headingDeg?: number) => void;
 
 interface MovementImpl {
   start(): void;
@@ -146,10 +182,12 @@ class ButtonMovementImpl implements MovementImpl {
 /** Geolocation-based movement using the browser's Geolocation API. */
 class GeolocationMovementImpl implements MovementImpl {
   private watchId: number | null = null;
+  private headingDeg: number | undefined;
+  private orientationListener: ((ev: DeviceOrientationEvent) => void) | null =
+    null;
 
   constructor(
-    private readonly onMove: MoveCallback,
-    private readonly getCurrentLatLng: () => LatLng,
+    private readonly onPosition: PositionCallback,
   ) {}
 
   start(): void {
@@ -157,6 +195,8 @@ class GeolocationMovementImpl implements MovementImpl {
       console.warn("Geolocation not available; staying in place.");
       return;
     }
+
+    this.beginOrientationUpdates();
 
     this.watchId = navigator.geolocation.watchPosition(
       (pos) => this.handlePosition(pos),
@@ -181,24 +221,68 @@ class GeolocationMovementImpl implements MovementImpl {
       navigator.geolocation.clearWatch(this.watchId);
       this.watchId = null;
     }
+
+    this.stopOrientationUpdates();
   }
 
   private handlePosition(pos: GeolocationPosition): void {
-    const currentLL = this.getCurrentLatLng();
     const targetLL: LatLng = {
       lat: pos.coords.latitude,
       lng: pos.coords.longitude,
     };
 
-    const currentCell = latLngToCellId(currentLL);
-    const targetCell = latLngToCellId(targetLL);
+    if (pos.coords.heading !== null && pos.coords.heading !== undefined) {
+      this.headingDeg = normalizeHeadingDeg(pos.coords.heading);
+    }
 
-    const dx = targetCell.x - currentCell.x;
-    const dy = targetCell.y - currentCell.y;
+    this.onPosition(targetLL, this.headingDeg);
+  }
 
-    if (dx === 0 && dy === 0) return;
+  private beginOrientationUpdates(): void {
+    // Not all browsers expose compass heading when standing still; try device orientation as a fallback.
+    if (typeof DeviceOrientationEvent === "undefined") return;
 
-    this.onMove(dx, dy);
+    const handler = (ev: DeviceOrientationEvent) => {
+      const anyEvent = ev as DeviceOrientationEvent & {
+        webkitCompassHeading?: number;
+      };
+
+      const fallback = typeof ev.alpha === "number"
+        ? normalizeHeadingDeg(360 - ev.alpha)
+        : undefined;
+      const heading = anyEvent.webkitCompassHeading ?? fallback;
+
+      if (heading === undefined || Number.isNaN(heading)) return;
+      this.headingDeg = heading;
+    };
+
+    this.orientationListener = handler;
+
+    const requestPermission = (DeviceOrientationEvent as unknown as {
+      requestPermission?: () => Promise<PermissionState>;
+    }).requestPermission;
+
+    if (typeof requestPermission === "function") {
+      requestPermission()
+        .then((result) => {
+          if (result === "granted") {
+            globalThis.addEventListener("deviceorientation", handler);
+          }
+        })
+        .catch((err) => console.warn("Device orientation permission:", err));
+    } else {
+      globalThis.addEventListener("deviceorientation", handler);
+    }
+  }
+
+  private stopOrientationUpdates(): void {
+    if (this.orientationListener) {
+      globalThis.removeEventListener(
+        "deviceorientation",
+        this.orientationListener,
+      );
+      this.orientationListener = null;
+    }
   }
 }
 
@@ -241,6 +325,7 @@ resetBtn.addEventListener("click", () => {
   state.overrides = fresh.overrides;
   state.craftCellId = fresh.craftCellId;
   state.scoreCellId = fresh.scoreCellId;
+  state.headingDeg = fresh.headingDeg;
 
   clearSavedState();
   saveState(state);
@@ -258,10 +343,7 @@ const buttonMovement = new ButtonMovementImpl(
   btnRight,
 );
 
-const geoMovement = new GeolocationMovementImpl(
-  movePlayerByCells,
-  () => state.playerLL,
-);
+const geoMovement = new GeolocationMovementImpl(movePlayerToLatLng);
 
 const movementFacade = new MovementFacade(buttonMovement, geoMovement);
 
@@ -276,6 +358,8 @@ if (movementSelect) {
       movementFacade.useGeolocation();
     } else {
       movementFacade.useButtons();
+      state.headingDeg = undefined;
+      world.updatePlayerMarker();
     }
   });
 }

@@ -27,6 +27,7 @@ type SavedState = {
   scoreCellId?: CellId;
   bestScore?: number;
   status?: GameStatus;
+  headingDeg?: number;
 };
 
 export function saveState(state: GameState): void {
@@ -47,6 +48,9 @@ export function saveState(state: GameState): void {
     scoreCellId: state.scoreCellId,
     bestScore: state.bestScore,
     status: state.status,
+    ...(state.headingDeg !== undefined
+      ? { headingDeg: state.headingDeg }
+      : {}),
   };
 
   try {
@@ -96,12 +100,14 @@ export function loadState(): GameState | undefined {
     const score = data.score ?? 0;
     const bestScore = data.bestScore ?? score;
     const status: GameStatus = data.status ?? "playing";
+    const headingDeg = data.headingDeg;
 
     return {
       playerLL,
       score,
       bestScore,
       status,
+      headingDeg,
       held: data.held,
       overrides,
       craftCellId,
@@ -128,6 +134,7 @@ export function createInitialState(): GameState {
     score: 0,
     bestScore: 0,
     status: "playing",
+    headingDeg: undefined,
     held: undefined,
     overrides,
     craftCellId,

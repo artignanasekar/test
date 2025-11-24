@@ -32,6 +32,7 @@ export type GameState = {
   score: number;
   bestScore: number;
   status: GameStatus;
+  headingDeg: number | undefined;
 
   held: Token | undefined;
   overrides: Map<string, Cell>;

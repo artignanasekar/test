@@ -66,9 +66,13 @@ export class World {
     // 🐱 player character marker
     const playerIcon = L.divIcon({
       className: "player-icon",
-      html: "🐱",
-      iconSize: [24, 24],
-      iconAnchor: [12, 12],
+      html:
+        `<div class="player-marker">
+          <div class="player-heading"></div>
+          <div class="player-emoji">🐱</div>
+        </div>`,
+      iconSize: [48, 48],
+      iconAnchor: [24, 24],
     });
 
     this.playerMarker = L.marker(
@@ -162,5 +166,18 @@ export class World {
       this.state.playerLL.lat,
       this.state.playerLL.lng,
     ]);
+
+    const el = this.playerMarker.getElement();
+    if (!el) return;
+
+    const headingDeg = this.state.headingDeg;
+    const hasHeading = headingDeg !== undefined && !Number.isNaN(headingDeg);
+
+    el.style.setProperty("--heading", `${headingDeg ?? 0}deg`);
+    if (hasHeading) {
+      el.classList.add("has-heading");
+    } else {
+      el.classList.remove("has-heading");
+    }
   }
 }

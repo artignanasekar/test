@@ -5,7 +5,6 @@
     <title>World of Bits – Arti</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <!-- Leaflet CSS -->
     <link
       rel="stylesheet"
       href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
@@ -87,10 +86,50 @@
       }
 
       .player-icon {
+        position: relative;
+        width: 48px;
+        height: 48px;
+        transform: translate(-50%, -50%);
+        pointer-events: none;
+      }
+
+      .player-marker {
+        --heading: 0deg;
+        position: relative;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .player-heading {
+        position: absolute;
+        width: 36px;
+        height: 36px;
+        top: 6px;
+        left: 6px;
+        transform-origin: 50% 80%;
+        transform: rotate(var(--heading));
+        background: radial-gradient(
+          ellipse at 50% 90%,
+          rgba(65, 139, 255, 0.35),
+          rgba(65, 139, 255, 0.05)
+        );
+        clip-path: polygon(50% 0%, 78% 82%, 22% 82%);
+        opacity: 0;
+        transition: opacity 0.2s ease-out;
+        filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.15));
+      }
+
+      .player-icon.has-heading .player-heading {
+        opacity: 1;
+      }
+
+      .player-emoji {
         font-size: 24px;
         line-height: 24px;
         text-align: center;
-        transform: translate(-50%, -50%);
       }
 
       /* Movement button cluster */
@@ -163,6 +202,8 @@
             mode.</span>
           <span>Switch to “Geolocation” to move the cat by moving with your
             device (you’ll be asked for location permission).</span>
+          <span>The blue fan points the way you’re facing when your device gives
+            heading info.</span>
           <span>Click nearby cells to pick up / drop tokens.</span>
           <span>🟧 <strong>C</strong> = craft table. Drop tokens here to combine
             them.</span>
